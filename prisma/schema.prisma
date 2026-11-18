@@ -1,0 +1,120 @@
+// ChatPilot database schema.
+// A "Business" is one customer of our product (a tenant). Each business
+// configures its own AI agent: which skills are on, its knowledge, products,
+// and where captured items (leads/appointments/orders/handoffs) should go.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Business {
+  id       String @id @default(cuid())
+  // Public id used in the embed snippet and chat URL. Safe to expose.
+  widgetId String @unique @default(cuid())
+  name     String
+
+  // The AI agent's "brain": typed business facts it answers from.
+  knowledgeBase String @default("")
+  // First message the chat shows visitors.
+  greeting      String @default("Hi! How can I help you today?")
+  // The agent's display name.
+  agentName     String @default("Assistant")
+  // Widget accent color (hex).
+  themeColor    String @default("#ec6745")
+
+  // Comma-separated skill keys that are turned on for this agent.
+  // Possible: lead, appointment, order, status, handoff
+  enabledSkills String @default("lead")
+
+  // Config for specific skills:
+  // Products/menu (one per line, e.g. "Chocolate cake | $40 | serves 8").
+  products         String @default("")
+  // Free-text availability for bookings (e.g. "Mon–Sat 9am–5pm, 30-min slots").
+  availabilityNote String @default("")
+
+  // Where captured items are sent (both optional).
+  notifyEmail   String?
+  n8nWebhookUrl String?
+
+  leads        Lead[]
+  appointments Appointment[]
+  orders       Order[]
+  handoffs     Handoff[]
+  documents    Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Lead {
+  id         String   @id @default(cuid())
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  name       String
+  email      String
+  interest   String
+  notes      String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([businessId])
+}
+
+model Appointment {
+  id            String   @id @default(cuid())
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId    String
+  ref           String   @unique
+  customerName  String
+  customerEmail String
+  requestedTime String // free text, e.g. "Tuesday 3pm"
+  notes         String   @default("")
+  status        String   @default("new") // new | confirmed | done | cancelled
+  createdAt     DateTime @default(now())
+
+  @@index([businessId])
+}
+
+model Order {
+  id            String   @id @default(cuid())
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId    String
+  ref           String   @unique
+  customerName  String
+  customerEmail String
+  items         String // human-readable summary of ordered items
+  total         String   @default("")
+  notes         String   @default("")
+  status        String   @default("new") // new | preparing | ready | done
+  createdAt     DateTime @default(now())
+
+  @@index([businessId])
+}
+
+model Handoff {
+  id            String   @id @default(cuid())
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId    String
+  customerName  String
+  customerEmail String
+  question      String
+  status        String   @default("new") // new | handled
+  createdAt     DateTime @default(now())
+
+  @@index([businessId])
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  filename   String
+  content    String // extracted text, fed into the agent's knowledge
+  createdAt  DateTime @default(now())
+
+  @@index([businessId])
+}
