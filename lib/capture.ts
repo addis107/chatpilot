@@ -35,10 +35,57 @@ export async function notifyBusiness(
   }
 }
 
+/**
+ * Ask the business's n8n webhook a question and read its reply (synchronous).
+ * Used for live calendar availability checks — n8n queries Google Calendar and
+ * responds (via a "Respond to Webhook" node). Returns null if no webhook is set,
+ * it times out, or it errors — callers should fall back gracefully.
+ */
+export async function askBusinessWebhook(
+  business: Business,
+  payload: Record<string, unknown>
+): Promise<unknown | null> {
+  if (!business.n8nWebhookUrl) return null;
+  try {
+    const res = await fetch(business.n8nWebhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...payload,
+        business: business.name,
+        source: "ChatPilot",
+        capturedAt: new Date().toISOString(),
+      }),
+      signal: AbortSignal.timeout(9000),
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  } catch (err) {
+    console.error("askBusinessWebhook failed:", err);
+    return null;
+  }
+}
+
 export async function createLead(
   business: Business,
-  data: { name: string; email: string; interest: string; notes?: string }
+  data: {
+    name: string;
+    email: string;
+    interest: string;
+    notes?: string;
+    qualification?: string;
+    qualificationReason?: string;
+  }
 ) {
+  const valid = ["qualified", "follow_up", "not_fit"];
+  const qualification = valid.includes(data.qualification ?? "")
+    ? (data.qualification as string)
+    : "unknown";
   await prisma.lead.create({
     data: {
       businessId: business.id,
@@ -46,9 +93,11 @@ export async function createLead(
       email: data.email,
       interest: data.interest,
       notes: data.notes ?? "",
+      qualification,
+      qualificationReason: data.qualificationReason ?? "",
     },
   });
-  await notifyBusiness(business, "lead.created", data);
+  await notifyBusiness(business, "lead.created", { ...data, qualification });
 }
 
 export async function createAppointment(
@@ -58,6 +107,10 @@ export async function createAppointment(
     email: string;
     requestedTime: string;
     notes?: string;
+    // Exact ISO datetimes (if the agent resolved them) so n8n can create a
+    // precise Google Calendar event. Forwarded in the webhook payload.
+    isoStart?: string;
+    isoEnd?: string;
   }
 ) {
   const ref = makeRef("AP");
@@ -99,6 +152,23 @@ export async function createOrder(
   });
   await notifyBusiness(business, "order.created", { ...data, ref });
   return ref;
+}
+
+export async function createPendingReply(
+  business: Business,
+  data: { question: string; draft: string; customerEmail: string }
+) {
+  await prisma.pendingReply.create({
+    data: {
+      businessId: business.id,
+      question: data.question,
+      draft: data.draft,
+      customerEmail: data.customerEmail,
+    },
+  });
+  // Hand off to n8n: it posts the draft to Slack for approval/edit, then emails
+  // the final reply to the customer.
+  await notifyBusiness(business, "reply.draft", data);
 }
 
 export async function createHandoff(

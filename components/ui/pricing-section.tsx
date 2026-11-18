@@ -171,7 +171,7 @@ export default function PricingSection() {
                       customVariants={timelineVariants}
                       className="flex items-center"
                     >
-                      <div className="mr-3 flex h-6 w-6 items-center justify-center rounded-full bg-[#ec6745] shadow-md shadow-[#ec6745]/40">
+                      <div className="mr-3 flex h-6 w-6 items-center justify-center rounded-full bg-[#ec6745]">
                         <CheckCheck className="h-4 w-4 text-white" />
                       </div>
                       <span className="text-[#3a5450]">{feature}</span>

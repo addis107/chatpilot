@@ -6,6 +6,8 @@ import {
   createAppointment,
   createOrder,
   createHandoff,
+  createPendingReply,
+  askBusinessWebhook,
   lookupStatus,
 } from "@/lib/capture";
 
@@ -27,7 +29,7 @@ function buildSystemPrompt(business: Business, docsText: string): string {
   const parts: string[] = [];
 
   parts.push(
-    `You are "${business.agentName}", the friendly AI assistant for the business "${business.name}".`
+    `You are "${business.agentName}", the friendly AI assistant for the business "${business.name}". Today's date is ${new Date().toISOString().slice(0, 10)} — use it to resolve days like "Tuesday" or "tomorrow" into real dates.`
   );
 
   parts.push(`Your rules:
@@ -59,6 +61,10 @@ function buildSystemPrompt(business: Business, docsText: string): string {
     skillLines.push(
       "- Hand off to a human when you cannot help. Collect name, email, and their question."
     );
+  if (skills.includes("review"))
+    skillLines.push(
+      "- For TRICKY questions, draft a reply for a human to approve instead of answering live (see Review rules)."
+    );
   if (skillLines.length)
     parts.push(`What you can do (use the matching tool):\n${skillLines.join("\n")}`);
 
@@ -69,8 +75,49 @@ function buildSystemPrompt(business: Business, docsText: string): string {
   }
   if (skills.includes("appointment")) {
     parts.push(
-      `# Availability\n${business.availabilityNote || "(No availability given — collect a preferred time and let the team confirm.)"}`
+      `# Availability\n${business.availabilityNote || "(No availability given — collect a preferred time and let the team confirm.)"}
+
+Booking rules:
+- Before booking, call check_availability for the requested day. It returns the
+  busy times from the live calendar.
+- Only book a time that is FREE and within the Availability hours above. If the
+  visitor's time is taken, offer the nearest open times.
+- If check_availability reports no live calendar is connected, just collect a
+  preferred time with book_appointment and tell them the team will confirm.`
     );
+  }
+
+  if (business.qualificationRules && business.qualificationRules.trim()) {
+    parts.push(`# Qualifying leads (important)
+Decide whether each visitor is a QUALIFIED lead using these rules:
+${business.qualificationRules}
+
+Judge every captured visitor as one of:
+- "qualified" — matches the rules; a serious, ready lead.
+- "follow_up" — interested but missing info, budget, fit or timing.
+- "not_fit" — clearly not a match, or just browsing / not serious.
+
+How to act on it:
+- Ask a question or two to figure this out first — don't interrogate.
+- ONLY book an appointment for a "qualified" visitor.
+- For "follow_up" or "not_fit", still capture the lead so the team can see it
+  (with the matching qualification and a short reason), but do NOT book.
+- Stay warm — never tell the visitor they are "not a fit".
+- Always pass "qualification" and a short "qualificationReason" to capture_lead.`);
+  }
+
+  if (skills.includes("review")) {
+    parts.push(`# Review rules (draft tricky replies for approval)
+Answer SIMPLE, factual questions (hours, location, basic FAQs) directly and live.
+But for TRICKY questions — anything you're unsure about, or about pricing/quotes,
+refunds, discounts, availability promises, or sensitive topics (medical, legal,
+money) — do NOT answer the visitor directly. Instead:
+1. If you don't have it yet, ask for the visitor's email ("so our team can get
+   back to you").
+2. Write your single best DRAFT answer to their question.
+3. Call draft_for_review with { question, draft, customerEmail }.
+4. Tell the visitor a team member will review and email them shortly.
+Never send the draft text straight to the visitor — it must be approved first.`);
   }
 
   const knowledge = [business.knowledgeBase, docsText]
@@ -98,6 +145,15 @@ function buildTools(business: Business): Anthropic.Tool[] {
           email: { type: "string" },
           interest: { type: "string", description: "What they're interested in." },
           notes: { type: "string" },
+          qualification: {
+            type: "string",
+            enum: ["qualified", "follow_up", "not_fit"],
+            description: "Your qualifier verdict for this visitor.",
+          },
+          qualificationReason: {
+            type: "string",
+            description: "One short line explaining the verdict.",
+          },
         },
         required: ["name", "email", "interest"],
       },
@@ -105,6 +161,22 @@ function buildTools(business: Business): Anthropic.Tool[] {
   }
 
   if (skills.includes("appointment")) {
+    tools.push({
+      name: "check_availability",
+      description:
+        "Check the business's live calendar (via n8n → Google Calendar) for busy times on a given day, BEFORE booking. Returns busy slots; pick a free time within the Availability hours.",
+      input_schema: {
+        type: "object",
+        properties: {
+          date: {
+            type: "string",
+            description:
+              "The day the visitor wants as an ISO date, YYYY-MM-DD (resolve 'Tuesday'/'tomorrow' using today's date).",
+          },
+        },
+        required: ["date"],
+      },
+    });
     tools.push({
       name: "book_appointment",
       description:
@@ -117,6 +189,14 @@ function buildTools(business: Business): Anthropic.Tool[] {
           requestedTime: {
             type: "string",
             description: "The time the visitor asked for, e.g. 'Tuesday 3pm'.",
+          },
+          isoStart: {
+            type: "string",
+            description: "Exact start as ISO 8601 if known, e.g. 2026-11-20T15:00:00.",
+          },
+          isoEnd: {
+            type: "string",
+            description: "Exact end as ISO 8601 if known, e.g. 2026-11-20T15:30:00.",
           },
           notes: { type: "string" },
         },
@@ -180,6 +260,26 @@ function buildTools(business: Business): Anthropic.Tool[] {
     });
   }
 
+  if (skills.includes("review")) {
+    tools.push({
+      name: "draft_for_review",
+      description:
+        "For a tricky question, submit your DRAFT answer for a human to approve/edit before it is sent. Requires the question, your draft, and the customer's email. Do not reveal the draft to the visitor.",
+      input_schema: {
+        type: "object",
+        properties: {
+          question: { type: "string", description: "The visitor's question." },
+          draft: { type: "string", description: "Your best proposed answer." },
+          customerEmail: {
+            type: "string",
+            description: "The visitor's email, so the approved reply can be sent.",
+          },
+        },
+        required: ["question", "draft", "customerEmail"],
+      },
+    });
+  }
+
   return tools;
 }
 
@@ -192,20 +292,39 @@ async function runTool(
 ): Promise<string> {
   const s = (v: unknown) => String(v ?? "").trim();
   switch (name) {
-    case "capture_lead":
+    case "capture_lead": {
+      const qualification = s(input.qualification);
       await createLead(business, {
         name: s(input.name),
         email: s(input.email),
         interest: s(input.interest),
         notes: s(input.notes),
+        qualification,
+        qualificationReason: s(input.qualificationReason),
       });
       events.push({ type: "lead" });
-      return "Lead saved and the business was notified.";
+      return qualification === "not_fit"
+        ? "Lead saved as not-a-fit. Wrap up warmly without booking."
+        : "Lead saved and the business was notified.";
+    }
+    case "check_availability": {
+      const result = await askBusinessWebhook(business, {
+        event: "availability.check",
+        date: s(input.date),
+      });
+      if (result == null)
+        return "No live calendar is connected. Collect a preferred time with book_appointment and tell the visitor the team will confirm.";
+      return `Live calendar for ${s(input.date)} (busy times): ${
+        typeof result === "string" ? result : JSON.stringify(result)
+      }. Offer a FREE time within the Availability hours, avoiding these.`;
+    }
     case "book_appointment": {
       const ref = await createAppointment(business, {
         name: s(input.name),
         email: s(input.email),
         requestedTime: s(input.requestedTime),
+        isoStart: s(input.isoStart) || undefined,
+        isoEnd: s(input.isoEnd) || undefined,
         notes: s(input.notes),
       });
       events.push({ type: "appointment", ref });
@@ -235,6 +354,14 @@ async function runTool(
       });
       events.push({ type: "handoff" });
       return "A team member has been notified and will follow up by email.";
+    case "draft_for_review":
+      await createPendingReply(business, {
+        question: s(input.question),
+        draft: s(input.draft),
+        customerEmail: s(input.customerEmail),
+      });
+      events.push({ type: "review" });
+      return "Draft submitted for human approval. Tell the visitor a team member will review and email them shortly. Do NOT show them the draft.";
     default:
       return "Unknown tool.";
   }

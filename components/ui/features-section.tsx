@@ -99,9 +99,9 @@ export default function FeaturesSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-60px' }}
                 transition={{ duration: 0.5, delay: i * 0.06, ease: EASE }}
-                className='group rounded-2xl border border-[#e3d9d3] bg-white p-6 shadow-[0_6px_18px_rgb(35_78_75/0.05)] transition-colors hover:border-[#ec6745]'
+                className='group rounded-2xl border border-[#e3d9d3] bg-white p-6 transition-colors hover:border-[#ec6745]'
               >
-                <div className='grid size-12 place-items-center rounded-xl bg-[#ec6745] text-white shadow-[0_6px_16px_-4px_rgb(236_103_69/0.5)]'>
+                <div className='grid size-12 place-items-center rounded-xl bg-[#ec6745] text-white'>
                   <Icon className='size-6' strokeWidth={1.8} aria-hidden />
                 </div>
                 <h3 className='mt-5 text-[1.15rem] font-semibold text-[#234e4b]'>

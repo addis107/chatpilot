@@ -36,16 +36,19 @@ model Business {
   products         String @default("")
   // Free-text availability for bookings (e.g. "Mon–Sat 9am–5pm, 30-min slots").
   availabilityNote String @default("")
+  // What makes a GOOD / qualified lead for this business (used by the AI to qualify).
+  qualificationRules String @default("")
 
   // Where captured items are sent (both optional).
   notifyEmail   String?
   n8nWebhookUrl String?
 
-  leads        Lead[]
-  appointments Appointment[]
-  orders       Order[]
-  handoffs     Handoff[]
-  documents    Document[]
+  leads          Lead[]
+  appointments   Appointment[]
+  orders         Order[]
+  handoffs       Handoff[]
+  documents      Document[]
+  pendingReplies PendingReply[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -59,6 +62,9 @@ model Lead {
   email      String
   interest   String
   notes      String   @default("")
+  // AI qualifier verdict: qualified | follow_up | not_fit | unknown
+  qualification       String @default("unknown")
+  qualificationReason String @default("")
   createdAt  DateTime @default(now())
 
   @@index([businessId])
@@ -115,6 +121,19 @@ model Document {
   filename   String
   content    String // extracted text, fed into the agent's knowledge
   createdAt  DateTime @default(now())
+
+  @@index([businessId])
+}
+
+model PendingReply {
+  id            String   @id @default(cuid())
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId    String
+  question      String
+  draft         String // the AI's proposed answer, awaiting human approval
+  customerEmail String
+  status        String   @default("pending") // pending | approved | sent
+  createdAt     DateTime @default(now())
 
   @@index([businessId])
 }

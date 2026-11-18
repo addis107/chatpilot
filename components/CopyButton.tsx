@@ -7,7 +7,7 @@ export default function CopyButton({ text }: { text: string }) {
   return (
     <button
       type="button"
-      className="btn-ghost"
+      className="inline-flex h-11 items-center rounded-full bg-[#ec6745] px-6 text-[15px] font-semibold text-white transition-colors hover:bg-[#d9542f]"
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(text);
@@ -18,7 +18,7 @@ export default function CopyButton({ text }: { text: string }) {
         }
       }}
     >
-      {copied ? "✓ Copied" : "Copy"}
+      {copied ? "✓ Copied" : "Copy snippet"}
     </button>
   );
 }

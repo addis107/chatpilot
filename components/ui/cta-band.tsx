@@ -51,7 +51,7 @@ export default function CtaBand() {
           <div className="mb-10 flex flex-wrap items-center justify-center gap-7">
             {BADGES.map(({ icon: Icon, full, half }, b) => (
               <div key={b} className="flex items-center gap-2.5">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_4px_12px_rgb(35_78_75/0.08)]">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white">
                   <Icon className="size-4 text-[#234e4b]" strokeWidth={1.8} />
                 </div>
                 <div className="flex items-center text-[#ec6745]">

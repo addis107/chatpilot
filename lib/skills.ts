@@ -7,7 +7,8 @@ export type SkillKey =
   | "appointment"
   | "order"
   | "status"
-  | "handoff";
+  | "handoff"
+  | "review";
 
 export const SKILLS: {
   key: SkillKey;
@@ -44,6 +45,13 @@ export const SKILLS: {
     label: "Hand off to a human",
     icon: "🙋",
     description: "Route questions the agent can't answer to your team.",
+  },
+  {
+    key: "review",
+    label: "Draft replies for approval",
+    icon: "📝",
+    description:
+      "For tricky questions, the agent drafts a reply for a human to approve & edit (via n8n → Slack) instead of answering live.",
   },
 ];
 

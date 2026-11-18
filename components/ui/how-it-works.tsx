@@ -37,7 +37,7 @@ const Card = ({ number, title, description, className, rotate, colors }: CardPro
     <div
       className={`relative w-full md:w-[280px] transition-transform duration-300 hover:z-30 hover:scale-105 ${rotate} ${className}`}
     >
-      <div className="rounded-[25px] border border-[#e3d9d3] bg-white p-2 shadow-[0px_10px_24px_0px_rgba(35,78,75,0.1)]">
+      <div className="rounded-[25px] border border-[#e3d9d3] bg-white p-2">
         <Pin className={`mx-auto mb-6 z-20 h-8 w-8 ${colors.text}`} />
         <div
           className={`${colors.bg} border ${colors.border} rounded-[15px] p-[15px] h-full flex flex-col relative overflow-hidden`}

@@ -47,6 +47,7 @@ export async function updateBusiness(formData: FormData) {
       enabledSkills: enabled.join(","),
       products: String(formData.get("products") ?? ""),
       availabilityNote: String(formData.get("availabilityNote") ?? ""),
+      qualificationRules: String(formData.get("qualificationRules") ?? ""),
       n8nWebhookUrl: n8n || null,
       notifyEmail: email || null,
     },
