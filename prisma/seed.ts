@@ -19,7 +19,7 @@ async function main() {
       themeColor: "#ec6745",
       // Show off all the skills in the demo.
       enabledSkills: "lead,appointment,order,status,handoff",
-      knowledgeBase: `Bella's Bakery — fresh cakes, breads, and pastries.
+      knowledgeBase: `Bella's Bakery - fresh cakes, breads, and pastries.
 Open Mon–Sat, 7am–7pm. Closed Sunday.
 Location: 12 Maple Street.
 Free local delivery on orders over $50.

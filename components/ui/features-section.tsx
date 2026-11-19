@@ -20,7 +20,7 @@ const FEATURES: Feature[] = [
   {
     icon: MessageSquare,
     title: 'Answer questions',
-    desc: 'Replies instantly from your business info — prices, hours, policies — and never makes anything up.'
+    desc: 'Replies instantly from your business info - prices, hours, policies - and never makes anything up.'
   },
   {
     icon: UserPlus,

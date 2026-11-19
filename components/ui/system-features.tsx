@@ -32,17 +32,17 @@ export default function SystemFeatures() {
         collaboration={{
           title: "Answers customers instantly",
           description:
-            "Your agent replies to every visitor from your business info — answering questions, booking appointments and taking orders, 24/7.",
+            "Your agent replies to every visitor from your business info - answering questions, booking appointments and taking orders, 24/7.",
         }}
         reports={{
           title: "Captures every lead",
           description:
-            "Each conversation becomes a saved lead, booking or order — nothing slips through, even after hours.",
+            "Each conversation becomes a saved lead, booking or order - nothing slips through, even after hours.",
         }}
         integrations={{
           title: "Connects your tools",
           description:
-            "Send every lead, booking and order to the tools you already use — Google Sheets, Slack, Gmail or n8n.",
+            "Send every lead, booking and order to the tools you already use - Google Sheets, Slack, Gmail or n8n.",
           tools: ["Sheets", "Slack", "Gmail", "n8n"],
         }}
         insights={{

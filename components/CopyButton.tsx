@@ -14,7 +14,7 @@ export default function CopyButton({ text }: { text: string }) {
           setCopied(true);
           setTimeout(() => setCopied(false), 1800);
         } catch {
-          /* clipboard blocked — user can select manually */
+          /* clipboard blocked - user can select manually */
         }
       }}
     >

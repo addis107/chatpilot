@@ -15,7 +15,7 @@ const FONT = "'Onest', ui-sans-serif, system-ui, sans-serif";
 
 const testimonials = [
   {
-    quote: "Our website finally answers customers at 2am — and the leads just show up in my inbox.",
+    quote: "Our website finally answers customers at 2am - and the leads just show up in my inbox.",
     author: "Alex Rivera",
     role: "Owner",
     company: "Lumen Solar",
@@ -27,7 +27,7 @@ const testimonials = [
     company: "Bloom Studio",
   },
   {
-    quote: "It turned our contact form into real conversations — more orders, less back-and-forth.",
+    quote: "It turned our contact form into real conversations - more orders, less back-and-forth.",
     author: "Daniel Park",
     role: "Manager",
     company: "North Cafe",

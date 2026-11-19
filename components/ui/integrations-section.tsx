@@ -4,7 +4,7 @@ import { ToolWheel } from "@/components/ui/tool-wheel";
 
 const ONEST = "'Onest', ui-sans-serif, system-ui, sans-serif";
 
-// The ChatPilot pinwheel mark — the same one used in the hero navbar.
+// The ChatPilot pinwheel mark - the same one used in the hero navbar.
 const LEAF =
   "M11 0H19A3 3 0 0 1 22 3V11A11 11 0 0 1 11 22H3A3 3 0 0 1 0 19V11A11 11 0 0 1 11 0Z";
 const TURNS = [0, 90, 180, 270];
@@ -83,7 +83,7 @@ export default function IntegrationsSection() {
           interval={2.4}
           eyebrow="ONE AGENT, EVERYWHERE"
           title="Your whole customer flow."
-          subtitle="Website chats become leads, bookings and orders — sent to your inbox, sheets or n8n automatically."
+          subtitle="Website chats become leads, bookings and orders - sent to your inbox, sheets or n8n automatically."
           markPath=""
           markNode={<ChatPilotMark />}
           frame={false}

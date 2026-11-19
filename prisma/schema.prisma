@@ -39,9 +39,15 @@ model Business {
   // What makes a GOOD / qualified lead for this business (used by the AI to qualify).
   qualificationRules String @default("")
 
-  // Where captured items are sent (both optional).
+  // Where captured items are sent (all optional).
   notifyEmail   String?
   n8nWebhookUrl String?
+  // The business's own Slack Incoming Webhook. Passed in the central n8n payload
+  // so one workflow can post to each business's own Slack (not the operator's).
+  slackWebhookUrl String?
+  // Optional instant auto-reply emailed to a new lead (blank = off). Passed in the
+  // central n8n payload; n8n emails it to the lead when they left an email.
+  autoReplyMessage String?
 
   leads          Lead[]
   appointments   Appointment[]

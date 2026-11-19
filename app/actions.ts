@@ -35,6 +35,8 @@ export async function updateBusiness(formData: FormData) {
 
   const n8n = String(formData.get("n8nWebhookUrl") ?? "").trim();
   const email = String(formData.get("notifyEmail") ?? "").trim();
+  const slack = String(formData.get("slackWebhookUrl") ?? "").trim();
+  const autoReply = String(formData.get("autoReplyMessage") ?? "").trim();
 
   await prisma.business.update({
     where: { id },
@@ -50,6 +52,8 @@ export async function updateBusiness(formData: FormData) {
       qualificationRules: String(formData.get("qualificationRules") ?? ""),
       n8nWebhookUrl: n8n || null,
       notifyEmail: email || null,
+      slackWebhookUrl: slack || null,
+      autoReplyMessage: autoReply || null,
     },
   });
 
@@ -103,6 +107,32 @@ export async function uploadDocument(formData: FormData) {
 
   revalidatePath(`/dashboard/${businessId}`);
   redirect(`/dashboard/${businessId}`);
+}
+
+/** Extract text from an uploaded file WITHOUT storing it - for inline text fields. */
+export async function extractDocumentText(formData: FormData): Promise<string> {
+  const file = formData.get("file") as File | null;
+  if (!file || file.size === 0) return "";
+
+  const buf = Buffer.from(await file.arrayBuffer());
+  const name = file.name;
+  let text = "";
+
+  try {
+    if (name.toLowerCase().endsWith(".pdf")) {
+      // @ts-expect-error no types for the internal path
+      const pdf = (await import("pdf-parse/lib/pdf-parse.js")).default;
+      const data = await pdf(buf);
+      text = data.text ?? "";
+    } else {
+      text = buf.toString("utf8");
+    }
+  } catch (err) {
+    console.error("extractDocumentText failed:", err);
+    return "";
+  }
+
+  return text.replace(/\n{3,}/g, "\n\n").trim().slice(0, 20000);
 }
 
 /** Remove one uploaded knowledge document. */

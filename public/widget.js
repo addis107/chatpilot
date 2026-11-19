@@ -40,9 +40,28 @@
   };
   for (var k in btnStyle) btn.style[k] = btnStyle[k];
 
+  // ---- Optional visitor identity from the host site ----
+  // If the host page knows who's logged in, it sets:
+  //   window.ChatPilot = { user: { name: "...", email: "..." } };
+  // We forward that into the iframe so the agent already has their contact.
+  function identityParam() {
+    try {
+      var u = window.ChatPilot && window.ChatPilot.user;
+      if (!u) return "";
+      var slim = {};
+      if (typeof u.name === "string") slim.name = u.name;
+      if (typeof u.email === "string") slim.email = u.email;
+      if (!slim.name && !slim.email) return "";
+      return "?u=" + encodeURIComponent(JSON.stringify(slim));
+    } catch (e) {
+      return "";
+    }
+  }
+
   // ---- Chat iframe ----
   var frame = document.createElement("iframe");
-  frame.src = origin + "/embed/" + encodeURIComponent(widgetId);
+  frame.src =
+    origin + "/embed/" + encodeURIComponent(widgetId) + identityParam();
   frame.title = "Chat";
   var frameStyle = {
     position: "fixed",

@@ -1,7 +1,7 @@
 "use client"
 
 // The features section from ink-orbit-saas-template, standalone: a hatched
-// page and a bento of three live diagrams — your team's edits flowing through a
+// page and a bento of three live diagrams - your team's edits flowing through a
 // hub into a stack of reports that keeps printing, an integrations hub that
 // syncs one tool at a time, and a forecast chart you can scrub.
 //
@@ -90,15 +90,15 @@ const D_FEATURES: InkFeatures = {
   title: "Everything your agent *handles*\nfor you",
   collaboration: {
     title: "Answers customers instantly",
-    description: "Your agent replies to every visitor from your business info — answering questions, booking appointments and taking orders, 24/7.",
+    description: "Your agent replies to every visitor from your business info - answering questions, booking appointments and taking orders, 24/7.",
   },
   reports: {
     title: "Captures every lead",
-    description: "Each conversation becomes a saved lead, booking or order — nothing slips through, even after hours.",
+    description: "Each conversation becomes a saved lead, booking or order - nothing slips through, even after hours.",
   },
   integrations: {
     title: "Connects your tools",
-    description: "Send every lead, booking and order to the tools you already use — Google Sheets, Slack, Gmail or n8n.",
+    description: "Send every lead, booking and order to the tools you already use - Google Sheets, Slack, Gmail or n8n.",
     tools: ["Sheets", "Slack", "Gmail", "n8n"],
   },
   insights: {
@@ -242,7 +242,7 @@ function Mark({ size = 18 }: { size?: number }) {
   )
 }
 
-/* drawn portraits — greyscale, so they sit in the palette */
+/* drawn portraits - greyscale, so they sit in the palette */
 const PORTRAITS = [
   { hair: "short", beard: true, glasses: false, skin: "#b9b4ae", hairC: "#2b2a29", shirt: "#3a3a3a", bg: "#d9d6d2" },
   { hair: "long", beard: false, glasses: false, skin: "#d6d0c9", hairC: "#8d7f6c", shirt: "#7b7b7b", bg: "#e6e3df" },

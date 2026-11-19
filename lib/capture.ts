@@ -11,35 +11,78 @@ export function makeRef(prefix: string): string {
   return `${prefix}-${code}`;
 }
 
-/** Fire the business's n8n webhook with an event (fire-and-forget). */
+/** ChatPilot's own central n8n - one workflow routes events for every business. */
+const CENTRAL_N8N_URL = process.env.CHATPILOT_N8N_URL?.trim();
+
+/** POST JSON, fire-and-forget (never throws). */
+async function postJson(url: string, body: unknown) {
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    console.error(`Webhook POST failed (${url}):`, err);
+  }
+}
+
+/**
+ * Emit a captured event. Goes to two places (both optional, both fire-and-forget):
+ *
+ *  1. The CENTRAL n8n (CHATPILOT_N8N_URL) - ALWAYS, tagged with businessId so one
+ *     workflow you run can route it (Slack, Sheets, email, …) per business.
+ *  2. The business's own custom webhook (advanced) - only if they set one, in the
+ *     original flat shape so existing workflows keep working.
+ */
 export async function notifyBusiness(
   business: Business,
   event: string,
   payload: Record<string, unknown>
 ) {
-  if (!business.n8nWebhookUrl) return;
-  try {
-    await fetch(business.n8nWebhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+  const capturedAt = new Date().toISOString();
+  const jobs: Promise<void>[] = [];
+
+  // 1) Central n8n - structured envelope with the business context it needs to route.
+  if (CENTRAL_N8N_URL) {
+    jobs.push(
+      postJson(CENTRAL_N8N_URL, {
+        event,
+        source: "ChatPilot",
+        capturedAt,
+        business: {
+          id: business.id,
+          name: business.name,
+          notifyEmail: business.notifyEmail ?? null,
+          slackWebhookUrl: business.slackWebhookUrl ?? null,
+          autoReplyMessage: business.autoReplyMessage ?? null,
+        },
+        data: payload,
+      })
+    );
+  }
+
+  // 2) Advanced per-business webhook - flat shape, unchanged for back-compat.
+  if (business.n8nWebhookUrl) {
+    jobs.push(
+      postJson(business.n8nWebhookUrl, {
         event,
         business: business.name,
         source: "ChatPilot",
-        capturedAt: new Date().toISOString(),
+        capturedAt,
         ...payload,
-      }),
-    });
-  } catch (err) {
-    console.error(`n8n webhook failed for event ${event}:`, err);
+      })
+    );
   }
+
+  await Promise.all(jobs);
 }
 
 /**
  * Ask the business's n8n webhook a question and read its reply (synchronous).
- * Used for live calendar availability checks — n8n queries Google Calendar and
+ * Used for live calendar availability checks - n8n queries Google Calendar and
  * responds (via a "Respond to Webhook" node). Returns null if no webhook is set,
- * it times out, or it errors — callers should fall back gracefully.
+ * it times out, or it errors - callers should fall back gracefully.
  */
 export async function askBusinessWebhook(
   business: Business,
@@ -225,11 +268,11 @@ export async function lookupStatus(
   const lines: string[] = [];
   for (const a of appts) {
     lines.push(
-      `Appointment ${a.ref}: ${a.requestedTime} — status: ${a.status}.`
+      `Appointment ${a.ref}: ${a.requestedTime} - status: ${a.status}.`
     );
   }
   for (const o of orders) {
-    lines.push(`Order ${o.ref}: ${o.items} — status: ${o.status}.`);
+    lines.push(`Order ${o.ref}: ${o.items} - status: ${o.status}.`);
   }
   return lines.join("\n");
 }

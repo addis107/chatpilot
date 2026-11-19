@@ -91,13 +91,13 @@ export default function HowItWorks({ features, className, stepPositions }: HowIt
     {
       title: "Add your business info",
       description:
-        "Paste your prices, hours and FAQs — or upload a PDF. That becomes your agent's brain.",
+        "Paste your prices, hours and FAQs - or upload a PDF. That becomes your agent's brain.",
       colors: CORAL,
     },
     {
       title: "Copy one line of code",
       description:
-        "Drop the snippet onto your site. The chat widget appears instantly — no developer needed.",
+        "Drop the snippet onto your site. The chat widget appears instantly - no developer needed.",
       colors: TEAL,
     },
     {

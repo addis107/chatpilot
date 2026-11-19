@@ -9,11 +9,13 @@ export default function ChatPanel({
   greeting,
   agentName,
   themeColor,
+  visitor,
 }: {
   widgetId: string;
   greeting: string;
   agentName: string;
   themeColor: string;
+  visitor?: { name?: string; email?: string };
 }) {
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", content: greeting },
@@ -40,7 +42,7 @@ export default function ChatPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Skip the local greeting bubble when sending history.
-        body: JSON.stringify({ messages: next.slice(1) }),
+        body: JSON.stringify({ messages: next.slice(1), visitor }),
       });
       const data = await res.json();
       setMessages((m) => [
@@ -53,7 +55,7 @@ export default function ChatPanel({
     } catch {
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: "Network error — please try again." },
+        { role: "assistant", content: "Network error - please try again." },
       ]);
     } finally {
       setLoading(false);

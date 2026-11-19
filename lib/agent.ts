@@ -12,9 +12,29 @@ import {
 } from "@/lib/capture";
 
 const MODEL = "claude-sonnet-4-6";
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+// Read the key from CHATPILOT_ANTHROPIC_KEY (NOT ANTHROPIC_API_KEY) so the SDK
+// doesn't auto-attach the legacy x-api-key header from the environment - newer
+// "personal" keys (sk-ant-usr-...) must use Authorization: Bearer instead, and
+// if they aren't scoped to a workspace they also need anthropic-workspace-id.
+const RAW_KEY =
+  process.env.CHATPILOT_ANTHROPIC_KEY ?? process.env.ANTHROPIC_API_KEY ?? "";
+const WORKSPACE_ID = process.env.ANTHROPIC_WORKSPACE_ID?.trim();
+const isUserKey = RAW_KEY.startsWith("sk-ant-usr-");
+
+const anthropic = isUserKey
+  ? new Anthropic({
+      authToken: RAW_KEY,
+      ...(WORKSPACE_ID
+        ? { defaultHeaders: { "anthropic-workspace-id": WORKSPACE_ID } }
+        : {}),
+    })
+  : new Anthropic({ apiKey: RAW_KEY });
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
+
+/** Identity passed in by the host website (if the visitor is logged in there). */
+export type Visitor = { name?: string; email?: string };
 
 export type AgentEvent = { type: string; ref?: string };
 
@@ -24,13 +44,31 @@ export type AgentResult = {
 };
 
 /** Build the per-business system prompt from its config + knowledge. */
-function buildSystemPrompt(business: Business, docsText: string): string {
+function buildSystemPrompt(
+  business: Business,
+  docsText: string,
+  visitor?: Visitor
+): string {
   const skills = parseSkills(business.enabledSkills);
   const parts: string[] = [];
 
   parts.push(
-    `You are "${business.agentName}", the friendly AI assistant for the business "${business.name}". Today's date is ${new Date().toISOString().slice(0, 10)} — use it to resolve days like "Tuesday" or "tomorrow" into real dates.`
+    `You are "${business.agentName}", the friendly AI assistant for the business "${business.name}". Today's date is ${new Date().toISOString().slice(0, 10)} - use it to resolve days like "Tuesday" or "tomorrow" into real dates.`
   );
+
+  // If the host site already identified the visitor (they're logged in there),
+  // tell the agent so it greets by name and never re-asks for known details.
+  const vName = visitor?.name?.trim();
+  const vEmail = visitor?.email?.trim();
+  if (vName || vEmail) {
+    parts.push(`# Signed-in visitor (already known - do NOT ask for these)
+This visitor is logged in on the website. Their details are already known:
+- Name: ${vName || "(not provided)"}
+- Email: ${vEmail || "(not provided)"}
+Greet them by first name if you have it. When you capture a lead, order, booking
+or handoff, REUSE these details automatically - only ask for a contact detail that
+is marked "(not provided)" above.`);
+  }
 
   parts.push(`Your rules:
 - Answer ONLY using the Business Knowledge below. If something isn't covered, say
@@ -68,22 +106,30 @@ function buildSystemPrompt(business: Business, docsText: string): string {
   if (skillLines.length)
     parts.push(`What you can do (use the matching tool):\n${skillLines.join("\n")}`);
 
+  if (skills.includes("lead")) {
+    parts.push(`# Getting a way to follow up (do this naturally)
+When a visitor shows real interest, get ONE way to reach them so the team can follow up:
+- Frame it as a benefit to THEM ("so our team can send your confirmation / get back to you about this"), never a cold demand for data.
+- Email is best, but accept a phone number if they'd prefer - either is fine.
+- Ask once, warmly, one detail at a time. If they decline, DON'T push - still capture whatever you have and keep helping.
+- If a detail is already known (signed-in visitor above), never ask for it again.`);
+  }
+
   if (skills.includes("order")) {
     parts.push(
-      `# Product List\n${business.products || "(No products listed — do not take orders until the owner adds products.)"}`
+      `# Product List\n${business.products || "(No products listed - do not take orders until the owner adds products.)"}`
     );
   }
   if (skills.includes("appointment")) {
     parts.push(
-      `# Availability\n${business.availabilityNote || "(No availability given — collect a preferred time and let the team confirm.)"}
+      `# Availability\n${business.availabilityNote || "(No availability given - collect a preferred time and let the team confirm.)"}
 
 Booking rules:
-- Before booking, call check_availability for the requested day. It returns the
-  busy times from the live calendar.
-- Only book a time that is FREE and within the Availability hours above. If the
-  visitor's time is taken, offer the nearest open times.
-- If check_availability reports no live calendar is connected, just collect a
-  preferred time with book_appointment and tell them the team will confirm.`
+- ALWAYS resolve the requested time into isoStart (full ISO 8601, using today's
+  date) and pass it to book_appointment, with isoEnd 30 minutes later, so the
+  booking can be added to the calendar. Example: isoStart "2026-11-26T16:00:00".
+- Only book within the Availability hours above when they are given.
+- Collect a preferred time, book it, and tell the visitor the team will confirm.`
     );
   }
 
@@ -93,31 +139,31 @@ Decide whether each visitor is a QUALIFIED lead using these rules:
 ${business.qualificationRules}
 
 Judge every captured visitor as one of:
-- "qualified" — matches the rules; a serious, ready lead.
-- "follow_up" — interested but missing info, budget, fit or timing.
-- "not_fit" — clearly not a match, or just browsing / not serious.
+- "qualified" - matches the rules; a serious, ready lead.
+- "follow_up" - interested but missing info, budget, fit or timing.
+- "not_fit" - clearly not a match, or just browsing / not serious.
 
 How to act on it:
-- Ask a question or two to figure this out first — don't interrogate.
+- Ask a question or two to figure this out first - don't interrogate.
 - ONLY book an appointment for a "qualified" visitor.
 - For "follow_up" or "not_fit", still capture the lead so the team can see it
   (with the matching qualification and a short reason), but do NOT book.
-- Stay warm — never tell the visitor they are "not a fit".
+- Stay warm - never tell the visitor they are "not a fit".
 - Always pass "qualification" and a short "qualificationReason" to capture_lead.`);
   }
 
   if (skills.includes("review")) {
     parts.push(`# Review rules (draft tricky replies for approval)
 Answer SIMPLE, factual questions (hours, location, basic FAQs) directly and live.
-But for TRICKY questions — anything you're unsure about, or about pricing/quotes,
+But for TRICKY questions - anything you're unsure about, or about pricing/quotes,
 refunds, discounts, availability promises, or sensitive topics (medical, legal,
-money) — do NOT answer the visitor directly. Instead:
+money) - do NOT answer the visitor directly. Instead:
 1. If you don't have it yet, ask for the visitor's email ("so our team can get
    back to you").
 2. Write your single best DRAFT answer to their question.
 3. Call draft_for_review with { question, draft, customerEmail }.
 4. Tell the visitor a team member will review and email them shortly.
-Never send the draft text straight to the visitor — it must be approved first.`);
+Never send the draft text straight to the visitor - it must be approved first.`);
   }
 
   const knowledge = [business.knowledgeBase, docsText]
@@ -137,12 +183,13 @@ function buildTools(business: Business): Anthropic.Tool[] {
     tools.push({
       name: "capture_lead",
       description:
-        "Save an interested visitor as a lead. Use when they're interested but not placing an order or booking. Requires name AND email.",
+        "Save an interested visitor as a lead. Use when they're interested but not placing an order or booking. Capture at least ONE contact detail (email OR phone) if they give it - email preferred. Don't block on contact if they decline.",
       input_schema: {
         type: "object",
         properties: {
           name: { type: "string" },
-          email: { type: "string" },
+          email: { type: "string", description: "Their email, if given." },
+          phone: { type: "string", description: "Their phone number, if they gave that instead of email." },
           interest: { type: "string", description: "What they're interested in." },
           notes: { type: "string" },
           qualification: {
@@ -155,7 +202,7 @@ function buildTools(business: Business): Anthropic.Tool[] {
             description: "One short line explaining the verdict.",
           },
         },
-        required: ["name", "email", "interest"],
+        required: ["name", "interest"],
       },
     });
   }
@@ -288,17 +335,25 @@ async function runTool(
   business: Business,
   name: string,
   input: Record<string, unknown>,
-  events: AgentEvent[]
+  events: AgentEvent[],
+  visitor?: Visitor
 ): Promise<string> {
   const s = (v: unknown) => String(v ?? "").trim();
+  // Fall back to the signed-in visitor's identity if the model left it blank.
+  const vName = (v: unknown) => s(v) || s(visitor?.name);
+  const vEmail = (v: unknown) => s(v) || s(visitor?.email);
   switch (name) {
     case "capture_lead": {
       const qualification = s(input.qualification);
+      const phone = s(input.phone);
+      const notes = [s(input.notes), phone ? `Phone: ${phone}` : ""]
+        .filter(Boolean)
+        .join(" · ");
       await createLead(business, {
-        name: s(input.name),
-        email: s(input.email),
+        name: vName(input.name),
+        email: vEmail(input.email),
         interest: s(input.interest),
-        notes: s(input.notes),
+        notes,
         qualification,
         qualificationReason: s(input.qualificationReason),
       });
@@ -319,12 +374,27 @@ async function runTool(
       }. Offer a FREE time within the Availability hours, avoiding these.`;
     }
     case "book_appointment": {
+      // Bake the business timezone offset onto naive datetimes so n8n's calendar
+      // CHECK and CREATE agree on the exact instant. (+03:00 = East Africa Time;
+      // this becomes a per-business timezone later.)
+      const TZ = "+03:00";
+      const withTz = (iso: string) =>
+        iso && !/[zZ]$|[+-]\d{2}:\d{2}$/.test(iso) ? iso + TZ : iso;
+      const isoStart = withTz(s(input.isoStart)) || undefined;
+      let isoEnd = withTz(s(input.isoEnd)) || undefined;
+      // Default the end to 30 minutes after the start so the calendar event has a span.
+      if (isoStart && !isoEnd) {
+        const d = new Date(isoStart);
+        if (!isNaN(d.getTime())) {
+          isoEnd = new Date(d.getTime() + 30 * 60_000).toISOString();
+        }
+      }
       const ref = await createAppointment(business, {
-        name: s(input.name),
-        email: s(input.email),
+        name: vName(input.name),
+        email: vEmail(input.email),
         requestedTime: s(input.requestedTime),
-        isoStart: s(input.isoStart) || undefined,
-        isoEnd: s(input.isoEnd) || undefined,
+        isoStart,
+        isoEnd,
         notes: s(input.notes),
       });
       events.push({ type: "appointment", ref });
@@ -332,8 +402,8 @@ async function runTool(
     }
     case "place_order": {
       const ref = await createOrder(business, {
-        name: s(input.name),
-        email: s(input.email),
+        name: vName(input.name),
+        email: vEmail(input.email),
         items: s(input.items),
         total: s(input.total),
         notes: s(input.notes),
@@ -348,8 +418,8 @@ async function runTool(
       });
     case "request_handoff":
       await createHandoff(business, {
-        name: s(input.name),
-        email: s(input.email),
+        name: vName(input.name),
+        email: vEmail(input.email),
         question: s(input.question),
       });
       events.push({ type: "handoff" });
@@ -358,7 +428,7 @@ async function runTool(
       await createPendingReply(business, {
         question: s(input.question),
         draft: s(input.draft),
-        customerEmail: s(input.customerEmail),
+        customerEmail: vEmail(input.customerEmail),
       });
       events.push({ type: "review" });
       return "Draft submitted for human approval. Tell the visitor a team member will review and email them shortly. Do NOT show them the draft.";
@@ -371,7 +441,8 @@ async function runTool(
 export async function runAgent(
   business: Business,
   messages: ChatMessage[],
-  docsText: string
+  docsText: string,
+  visitor?: Visitor
 ): Promise<AgentResult> {
   const convo: Anthropic.MessageParam[] = messages.map((m) => ({
     role: m.role,
@@ -379,12 +450,13 @@ export async function runAgent(
   }));
   const tools = buildTools(business);
   const events: AgentEvent[] = [];
+  const system = buildSystemPrompt(business, docsText, visitor);
 
   for (let step = 0; step < 5; step++) {
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 1024,
-      system: buildSystemPrompt(business, docsText),
+      system,
       tools,
       messages: convo,
     });
@@ -410,7 +482,8 @@ export async function runAgent(
         business,
         tool.name,
         tool.input as Record<string, unknown>,
-        events
+        events,
+        visitor
       );
       toolResults.push({
         type: "tool_result",

@@ -837,7 +837,7 @@ const COPY = {
   eyebrow: 'The AI agent for your website',
   headline: ['Answer customers', 'and capture leads', 'on autopilot with'],
   accentWord: 'AI.',
-  body: 'Add a smart assistant to your site in minutes. It answers questions, books appointments, takes orders and captures every lead — around the clock.',
+  body: 'Add a smart assistant to your site in minutes. It answers questions, books appointments, takes orders and captures every lead - around the clock.',
   primaryCta: 'Start free',
   secondaryCta: 'See how it works'
 }

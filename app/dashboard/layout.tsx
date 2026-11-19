@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const FONT = "'Onest', ui-sans-serif, system-ui, sans-serif";
 
-// The ChatPilot pinwheel mark — identical to the main-site navbar.
+// The ChatPilot pinwheel mark - identical to the main-site navbar.
 const LEAF =
   "M11 0H19A3 3 0 0 1 22 3V11A11 11 0 0 1 11 22H3A3 3 0 0 1 0 19V11A11 11 0 0 1 11 0Z";
 const TURNS = [0, 90, 180, 270];
@@ -41,18 +41,12 @@ export default function DashboardLayout({
       className="min-h-screen bg-[#f3ece9] text-[#234e4b]"
     >
       <header className="sticky top-0 z-20 border-b border-[#e3d9d3] bg-[#f3ece9]/85 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-5xl items-center px-6 py-4">
           <Link href="/" className="flex items-center gap-2.5" aria-label="ChatPilot home">
             <Mark />
             <span className="text-[22px] font-medium tracking-[-0.03em] text-[#234e4b]">
               ChatPilot
             </span>
-          </Link>
-          <Link
-            href="/"
-            className="text-sm text-[#6c817e] transition-colors hover:text-[#234e4b]"
-          >
-            ← Back to site
           </Link>
         </div>
       </header>

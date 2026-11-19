@@ -90,7 +90,7 @@ export default function SiteFooter() {
           <div className="mb-8 w-full max-w-md">
             {subscribed ? (
               <p className="text-center text-[15px] font-medium text-[#f3ece9]">
-                ✓ Thanks — you&apos;re on the list.
+                ✓ Thanks - you&apos;re on the list.
               </p>
             ) : (
               <form

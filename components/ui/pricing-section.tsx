@@ -108,7 +108,7 @@ export default function PricingSection() {
     "Upload PDFs & docs for its knowledge",
     "Connect Slack, Sheets, Gmail & n8n",
     "Leads inbox + email alerts",
-    "No code — live in minutes",
+    "No code - live in minutes",
   ];
 
   return (
@@ -141,7 +141,7 @@ export default function PricingSection() {
             customVariants={revealVariants}
             className="text-xl text-[#6c817e]"
           >
-            Start free. Upgrade when your agent is winning leads — cancel anytime.
+            Start free. Upgrade when your agent is winning leads - cancel anytime.
           </TimelineContent>
         </div>
 

@@ -13,10 +13,10 @@ export default function Home() {
       {/* The branded hero (its own nav + animated core) is the top of the page. */}
       <CoreHero />
 
-      {/* What you get — live diagram bento of the agent's skills. */}
+      {/* What you get - live diagram bento of the agent's skills. */}
       <SystemFeatures />
 
-      {/* How it works — 3 steps. */}
+      {/* How it works - 3 steps. */}
       <HowItWorks />
 
       {/* Testimonials. */}
@@ -28,7 +28,7 @@ export default function Home() {
       {/* Call-to-action between the two feature sections. */}
       <CtaBand />
 
-      {/* Integrations — tool wheel. (commented out for now) */}
+      {/* Integrations - tool wheel. (commented out for now) */}
       {/* <IntegrationsSection /> */}
 
       {/* Stacked circular footer. */}
